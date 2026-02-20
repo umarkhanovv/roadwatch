@@ -1,0 +1,13 @@
+requirements.txt
+runtime.txt
+Procfile
+main.py
+database.py
+crud.py
+inference.py
+websocket_manager.py
+schemas.py
+models.py
+*.db
+venv/
+uploads/
