@@ -824,13 +824,8 @@ function RecentReportCard({ report, rank, isNew, t }) {
       )}
 
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10,paddingLeft:26}}>
-        <div>
-          <div style={{fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)',fontSize:15}}>
-            {t('reportId')}{report.id}
-          </div>
-          <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
-            {new Date(report.created_at).toLocaleString()}
-          </div>
+        <div style={{fontSize:11,color:'var(--text-muted)',paddingTop:2}}>
+          {new Date(report.created_at).toLocaleString()}
         </div>
         <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700,background:statusColor+'22',color:statusColor,textTransform:'uppercase',flexShrink:0}}>
           {report.status}
