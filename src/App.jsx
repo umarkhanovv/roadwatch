@@ -280,7 +280,7 @@ export default function App() {
   const path = window.location.pathname
   const isAdmin = path === '/admin'
 
-  const [lang, setLang] = useState(() => localStorage.getItem('rw_lang') || 'en')
+  const [lang, setLang] = useState(() => localStorage.getItem('rw_lang') || 'kz')
   const t = useCallback((key) => TRANSLATIONS[lang]?.[key] ?? TRANSLATIONS.en[key] ?? key, [lang])
 
   const [reports, setReports] = useState([])
@@ -515,6 +515,7 @@ function AdminLogin({ onLogin, addToast, t }) {
 
 // ── Admin Dashboard ──────────────────────────────────────────────────────────
 function AdminView({ reports, t }) {
+  const { lang } = useLang()
   const [selectedReport, setSelectedReport] = useState(null)
   const totalDefects = reports.reduce((s,r) => s+(r.detections?.length||0), 0)
   const processed    = reports.filter(r => r.status==='processed').length
@@ -594,7 +595,7 @@ function AdminView({ reports, t }) {
         </div>
       </div>
 
-      <ReportsTable reports={reports} isAdmin t={t} />
+      <ReportsTable reports={reports} isAdmin t={t} lang={lang} />
 
       {selectedReport && (
         <FileModal report={selectedReport} apiBase={apiBase} onClose={() => setSelectedReport(null)} t={t} />
@@ -720,14 +721,6 @@ function UserView({ reports, myReports, onSuccess, addToast, t }) {
 
       {/* Last 10 recent reports (real-time) */}
       <div style={{marginTop:28}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
-          <h2 style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:18,color:'var(--primary)'}}>
-            {t('recentReports')}
-          </h2>
-          <span style={{background:'rgba(53,88,114,0.08)',color:'var(--primary)',padding:'3px 12px',borderRadius:20,fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700}}>
-            {recentReports.length} / 10
-          </span>
-        </div>
         {recentReports.length === 0 ? (
           <div style={{background:'var(--bg-card)',borderRadius:14,border:'1px solid var(--border)',padding:'32px',textAlign:'center'}}>
             <div style={{fontSize:36,marginBottom:8}}>🛣️</div>
@@ -735,8 +728,8 @@ function UserView({ reports, myReports, onSuccess, addToast, t }) {
           </div>
         ) : (
           <div className="recent-grid">
-            {recentReports.map(r => (
-              <RecentReportCard key={r.id} report={r} isNew={newIds.has(r.id)} t={t} />
+            {recentReports.map((r, index) => (
+              <RecentReportCard key={r.id} report={r} rank={index + 1} isNew={newIds.has(r.id)} t={t} />
             ))}
           </div>
         )}
@@ -757,8 +750,33 @@ function UserView({ reports, myReports, onSuccess, addToast, t }) {
   )
 }
 
+// ── Defect name translations ──────────────────────────────────────────────────
+const DEFECT_NAMES = {
+  en: {
+    pothole: 'Pothole', crack: 'Crack', alligator_crack: 'Alligator Crack',
+    rutting: 'Rutting', depression: 'Depression', edge_crack: 'Edge Crack',
+    patching: 'Patching', weathering: 'Weathering',
+  },
+  ru: {
+    pothole: 'Выбоина', crack: 'Трещина', alligator_crack: 'Сетка трещин',
+    rutting: 'Колея', depression: 'Просадка', edge_crack: 'Краевая трещина',
+    patching: 'Заплатка', weathering: 'Выветривание',
+  },
+  kz: {
+    pothole: 'Шұңқыр', crack: 'Жарық', alligator_crack: 'Крокодил жарығы',
+    rutting: 'Із қалу', depression: 'Шөгу', edge_crack: 'Жиек жарығы',
+    patching: 'Жамау', weathering: 'Үгілу',
+  },
+}
+
+function translateDefect(type, lang) {
+  const key = String(type||'').toLowerCase().replace(/ /g,'_')
+  return DEFECT_NAMES[lang]?.[key] || DEFECT_NAMES.en[key] || key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())
+}
+
 // ── Recent Report Card ───────────────────────────────────────────────────────
-function RecentReportCard({ report, isNew, t }) {
+function RecentReportCard({ report, rank, isNew, t }) {
+  const { lang } = useLang()
   const defects = report.detections || []
   const mainDefect = defects[0]
   const statusColor = {pending:'#f39c12',processed:'#2ecc71',no_defects:'#7AAACE',failed:'#e74c3c'}[report.status]||'#aaa'
@@ -782,17 +800,27 @@ function RecentReportCard({ report, isNew, t }) {
       position:'relative',
       transition:'border 0.4s, box-shadow 0.4s',
     }}>
+      {/* Rank badge */}
+      <span style={{
+        position:'absolute',top:10,left:10,
+        background:'var(--primary)',color:'#fff',
+        fontSize:10,fontWeight:800,width:20,height:20,
+        borderRadius:'50%',fontFamily:'var(--font-mono)',
+        display:'flex',alignItems:'center',justifyContent:'center',
+        flexShrink:0,
+      }}>{rank}</span>
+
       {isNew && (
         <span style={{
           position:'absolute',top:-10,right:10,
-          background:'var(--primary)',color:'#fff',
+          background:'#2ecc71',color:'#fff',
           fontSize:10,fontWeight:800,padding:'2px 8px',
           borderRadius:20,fontFamily:'var(--font-mono)',
           animation:'slideDown 0.3s ease',
         }}>{t('recentNew')}</span>
       )}
 
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10,paddingLeft:26}}>
         <div>
           <div style={{fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)',fontSize:15}}>
             {t('reportId')}{report.id}
@@ -819,8 +847,8 @@ function RecentReportCard({ report, isNew, t }) {
         <div style={{display:'flex',flexDirection:'column',gap:4}}>
           {defects.slice(0,2).map((d,i) => (
             <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'5px 8px',background:defectColor+'11',borderRadius:6,border:`1px solid ${defectColor}33`}}>
-              <span style={{fontWeight:700,fontSize:12,color:defectColor,textTransform:'capitalize'}}>
-                {String(d.defect_type||'').replace(/_/g,' ')}
+              <span style={{fontWeight:700,fontSize:12,color:defectColor}}>
+                {translateDefect(d.defect_type, lang)}
               </span>
               <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>
                 {Math.round((d.confidence||0)*100)}%
@@ -849,6 +877,7 @@ function RecentReportCard({ report, isNew, t }) {
 }
 
 function MyReportCard({ report, t }) {
+  const { lang } = useLang()
   const defects = report.detections || []
   const statusColor = {pending:'#f39c12',processed:'#2ecc71',no_defects:'#7AAACE',failed:'#e74c3c'}[report.status]||'#aaa'
   return (
@@ -864,7 +893,7 @@ function MyReportCard({ report, t }) {
       </div>
       {defects.length > 0 ? defects.map((d,i) => (
         <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'6px 10px',background:'rgba(156,213,255,0.12)',borderRadius:6,border:'1px solid var(--border)',marginBottom:4}}>
-          <span style={{fontWeight:700,fontSize:13,color:'var(--primary)',textTransform:'capitalize'}}>{String(d.defect_type||'').replace(/_/g,' ')}</span>
+          <span style={{fontWeight:700,fontSize:13,color:'var(--primary)'}}>{translateDefect(d.defect_type, lang)}</span>
           <span style={{fontFamily:'var(--font-mono)',fontSize:12,color:'var(--text-muted)'}}>{Math.round((d.confidence||0)*100)}%</span>
         </div>
       )) : (
