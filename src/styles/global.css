@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Nunito:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap');
+
+:root {
+  --primary:     #355872;
+  --secondary:   #7AAACE;
+  --accent:      #9CD5FF;
+  --bg:          #F7F8F0;
+  --bg-card:     #FFFFFF;
+  --border:      #DDE4EC;
+  --text:        #1a2a38;
+  --text-muted:  #6b8399;
+  --error:       #e74c3c;
+  --shadow:      0 2px 12px rgba(53,88,114,0.10);
+  --font-display:'Syne', sans-serif;
+  --font-body:   'Nunito', sans-serif;
+  --font-mono:   'IBM Plex Mono', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+body {
+  overflow-x: hidden;
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  /* Prevent horizontal scroll on mobile */
+  overflow-x: hidden;
+}
+
+/* Smooth tap highlight removal on mobile */
+* { -webkit-tap-highlight-color: transparent; }
+
+button { font-family: var(--font-body); cursor: pointer; }
+
+textarea, input, select {
+  font-family: var(--font-body);
+  font-size: 16px; /* Prevents iOS zoom on focus */
+}
+
+/* Custom scrollbar (desktop only) */
+@media (min-width: 769px) {
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+}
+
+/* Leaflet map z-index fixes */
+.leaflet-container { z-index: 0; border-radius: 10px; }
+.leaflet-pane { z-index: 0 !important; }
+.leaflet-control { z-index: 1 !important; }
