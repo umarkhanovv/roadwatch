@@ -17,7 +17,7 @@ const TRANSLATIONS = {
     footerPowered: 'Powered by FastAPI + YOLOv8',
     // User view
     myReports: '📋 My Submitted Reports',
-    recentReports: '🕐 Recent Reports (Last 10)',
+    recentReports: '🕐 Recent Reports',
     recentEmpty: 'No reports yet. Be the first to submit a defect!',
     recentNew: '🆕 New',
     // Admin
@@ -106,7 +106,7 @@ const TRANSLATIONS = {
     wsReconnecting: 'Переподключение',
     footerPowered: 'Работает на FastAPI + YOLOv8',
     myReports: '📋 Мои отчёты',
-    recentReports: '🕐 Последние 10 отчётов',
+    recentReports: '🕐 Последние отчёты',
     recentEmpty: 'Отчётов пока нет. Будьте первым!',
     recentNew: '🆕 Новый',
     adminTitle: '⚙️ Панель администратора',
@@ -187,7 +187,7 @@ const TRANSLATIONS = {
     wsReconnecting: 'Қайта қосылуда',
     footerPowered: 'FastAPI + YOLOv8 арқылы жұмыс істейді',
     myReports: '📋 Менің хабарламаларым',
-    recentReports: '🕐 Соңғы 10 хабарлама',
+    recentReports: '🕐 Соңғы хабарламалар',
     recentEmpty: 'Хабарлама жоқ. Бірінші болыңыз!',
     recentNew: '🆕 Жаңа',
     adminTitle: '⚙️ Әкімші тақтасы',
@@ -719,8 +719,11 @@ function UserView({ reports, myReports, onSuccess, addToast, t }) {
         <div><MapView reports={reports} t={t} /></div>
       </div>
 
-      {/* Last 10 recent reports (real-time) */}
+      {/* Recent reports */}
       <div style={{marginTop:28}}>
+        <h2 style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:18,color:'var(--primary)',marginBottom:14}}>
+          {t('recentReports')}
+        </h2>
         {recentReports.length === 0 ? (
           <div style={{background:'var(--bg-card)',borderRadius:14,border:'1px solid var(--border)',padding:'32px',textAlign:'center'}}>
             <div style={{fontSize:36,marginBottom:8}}>🛣️</div>
@@ -834,13 +837,21 @@ function RecentReportCard({ report, rank, isNew, t }) {
         </span>
       </div>
 
-      {/* Location */}
-      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,background:'var(--bg)',borderRadius:6,padding:'5px 8px'}}>
+      {/* Location — Google Maps link */}
+      <a
+        href={`https://www.google.com/maps?q=${report.latitude},${report.longitude}`}
+        target="_blank"
+        rel="noreferrer"
+        style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,background:'var(--bg)',borderRadius:6,padding:'5px 8px',textDecoration:'none',transition:'background 0.15s'}}
+        onMouseEnter={e => e.currentTarget.style.background='rgba(53,88,114,0.08)'}
+        onMouseLeave={e => e.currentTarget.style.background='var(--bg)'}
+      >
         <span style={{fontSize:12}}>📍</span>
-        <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>
+        <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--secondary)',fontWeight:600,textDecoration:'underline',textDecorationStyle:'dotted'}}>
           {(report.latitude||0).toFixed(4)}, {(report.longitude||0).toFixed(4)}
         </span>
-      </div>
+        <span style={{fontSize:10,color:'var(--text-muted)',marginLeft:'auto'}}>↗</span>
+      </a>
 
       {/* Defects */}
       {defects.length > 0 ? (
