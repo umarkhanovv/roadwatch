@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-export function LocationModal({ onConfirm, onCancel, initial }) {
+export function LocationModal({ onConfirm, onCancel, initial, t = (k) => k }) {
   const mapRef = useRef(null)
   const leafletMapRef = useRef(null)
   const markerRef = useRef(null)
@@ -9,7 +9,6 @@ export function LocationModal({ onConfirm, onCancel, initial }) {
   useEffect(() => {
     if (!mapRef.current) return
 
-    // Dynamic import to avoid SSR issues
     import('leaflet').then(L => {
       if (leafletMapRef.current) return
 
@@ -28,7 +27,6 @@ export function LocationModal({ onConfirm, onCancel, initial }) {
         maxZoom: 19,
       }).addTo(map)
 
-      // Custom marker icon
       const icon = L.divIcon({
         className: '',
         html: `<div style="
@@ -90,10 +88,10 @@ export function LocationModal({ onConfirm, onCancel, initial }) {
       <div style={modal}>
         <div style={header}>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: 'var(--primary)' }}>
-            📍 Choose Location
+            {t('chooseLocation')}
           </span>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 2 }}>
-            Click on the map to place a marker. Drag to adjust.
+            {t('chooseLocationDesc')}
           </p>
         </div>
 
@@ -116,10 +114,10 @@ export function LocationModal({ onConfirm, onCancel, initial }) {
             disabled={!coords}
             style={btnPrimary(!!coords)}
           >
-            Confirm Location
+            {t('confirmLocation')}
           </button>
           <button onClick={onCancel} style={btnSecondary}>
-            Cancel
+            {t('cancel')}
           </button>
         </div>
       </div>
