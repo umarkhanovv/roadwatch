@@ -1,9 +1,269 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react'
 import { fetchReports, createWebSocket } from './api'
 import { UploadForm } from './components/UploadForm'
 import { MapView } from './components/MapView'
 import { ReportsTable } from './components/ReportsTable'
 import { ToastContainer } from './components/Toast'
+
+// ── i18n ─────────────────────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    appSubtitle: 'AI-Powered Road Defect Reporting',
+    navReport: 'Report',
+    navAdmin: 'Admin',
+    navLogout: 'Logout',
+    wsLive: 'Live',
+    wsReconnecting: 'Reconnecting',
+    footerPowered: 'Powered by FastAPI + YOLOv8',
+    // User view
+    myReports: '📋 My Submitted Reports',
+    recentReports: '🕐 Recent Reports (Last 10)',
+    recentEmpty: 'No reports yet. Be the first to submit a defect!',
+    recentNew: '🆕 New',
+    // Admin
+    adminTitle: '⚙️ Admin Dashboard',
+    adminFiles: '📂 All Uploaded Files',
+    statReports: 'Total Reports',
+    statDefects: 'Total Defects',
+    statProcessed: 'Processed',
+    statPending: 'Pending',
+    adminAccess: 'Admin Access',
+    adminDesc: 'Enter the admin password to continue',
+    adminPassword: 'Password',
+    adminPlaceholder: 'Enter admin password',
+    adminEnter: '🔓 Enter Admin Panel',
+    adminChecking: 'Checking…',
+    adminWrong: 'Incorrect password. Try again.',
+    // Report card
+    reportId: 'Report #',
+    analyzing: '⏳ Analyzing…',
+    noDefects: 'No defects detected',
+    // Upload form
+    reportTitle: '⚠️ Report a Road Defect',
+    uploadFile: '📁 Upload File',
+    cameraBtn: '📸 Take Photo / Video',
+    cameraMobile: '📱 Camera on mobile only',
+    locationLabel: 'Location',
+    locationRequired: '*',
+    locationGps: 'Auto GPS',
+    locationManual: 'Marked on map',
+    locationChange: '✏️ Change',
+    locationEmpty: '📍 Choose location on map',
+    locationAfterFile: '📍 Set after selecting a file',
+    locationGetting: 'Requesting GPS…',
+    descLabel: 'Description',
+    descOptional: '(optional)',
+    descPlaceholder: 'Briefly describe the defect…',
+    submitFile: '← Select a file first',
+    submitLocation: '← Set location first',
+    submitReady: '🚀 Upload & Analyze',
+    submitting: 'Analyzing…',
+    dragDrop: 'Drag & drop or use buttons below',
+    dragDrop2: 'JPG · PNG · MP4 · MOV · AVI',
+    dragHere: 'Drop here!',
+    fileRemove: '✕ Remove',
+    // Location modal
+    chooseLocation: '📍 Choose Location',
+    chooseLocationDesc: 'Click on the map to place a marker. Drag to adjust.',
+    confirmLocation: 'Confirm Location',
+    cancel: 'Cancel',
+    // Map
+    mapTitle: '🗺️ Live Detection Map',
+    defectsMapped: 'defects mapped',
+    // Table
+    tableTitle: '📋 Detection Log',
+    tableAdmin: '🗄️ All Detections',
+    tableEmpty: 'No reports yet. Submit the first defect!',
+    tableTotal: 'total',
+    colTime: 'TIME',
+    colReport: 'REPORT ID',
+    colType: 'TYPE',
+    colConf: 'CONFIDENCE',
+    colLat: 'LATITUDE',
+    colLon: 'LONGITUDE',
+    colStatus: 'STATUS',
+    // Toasts
+    toastLocation: '📡 Location captured!',
+    toastLocationDenied: 'Location access denied — mark it on the map',
+    toastSubmitOk: 'Alert sent — report queued for analysis',
+    toastNoFile: 'Please select a file',
+    toastNoLoc: 'Please set a location',
+    toastLoadErr: 'Could not load reports',
+    toastIncorrectPw: 'Incorrect password',
+    // File modal
+    download: '⬇️ Download File',
+    detections: 'DETECTIONS',
+    description: 'DESCRIPTION',
+    confidence: 'confidence',
+    date: 'Date', status: 'Status', type: 'Type', size: 'Size', latitude: 'Latitude', longitude: 'Longitude',
+  },
+  ru: {
+    appSubtitle: 'Система отчётов о дефектах дорог на ИИ',
+    navReport: 'Отчёт',
+    navAdmin: 'Админ',
+    navLogout: 'Выйти',
+    wsLive: 'В эфире',
+    wsReconnecting: 'Переподключение',
+    footerPowered: 'Работает на FastAPI + YOLOv8',
+    myReports: '📋 Мои отчёты',
+    recentReports: '🕐 Последние 10 отчётов',
+    recentEmpty: 'Отчётов пока нет. Будьте первым!',
+    recentNew: '🆕 Новый',
+    adminTitle: '⚙️ Панель администратора',
+    adminFiles: '📂 Все загруженные файлы',
+    statReports: 'Всего отчётов',
+    statDefects: 'Всего дефектов',
+    statProcessed: 'Обработано',
+    statPending: 'Ожидает',
+    adminAccess: 'Доступ администратора',
+    adminDesc: 'Введите пароль для входа',
+    adminPassword: 'Пароль',
+    adminPlaceholder: 'Введите пароль администратора',
+    adminEnter: '🔓 Войти в панель',
+    adminChecking: 'Проверка…',
+    adminWrong: 'Неверный пароль. Попробуйте снова.',
+    reportId: 'Отчёт #',
+    analyzing: '⏳ Анализируем…',
+    noDefects: 'Дефектов не обнаружено',
+    reportTitle: '⚠️ Сообщить о дефекте дороги',
+    uploadFile: '📁 Загрузить файл',
+    cameraBtn: '📸 Сфотографировать / Видео',
+    cameraMobile: '📱 Камера только на мобильных',
+    locationLabel: 'Местоположение',
+    locationRequired: '*',
+    locationGps: 'GPS автоматически',
+    locationManual: 'Отмечено на карте',
+    locationChange: '✏️ Изменить',
+    locationEmpty: '📍 Выберите место на карте',
+    locationAfterFile: '📍 Укажите после выбора файла',
+    locationGetting: 'Получение GPS…',
+    descLabel: 'Описание',
+    descOptional: '(необязательно)',
+    descPlaceholder: 'Кратко опишите дефект…',
+    submitFile: '← Сначала выберите файл',
+    submitLocation: '← Укажите местоположение',
+    submitReady: '🚀 Загрузить и анализировать',
+    submitting: 'Анализируем…',
+    dragDrop: 'Перетащите или используйте кнопки ниже',
+    dragDrop2: 'JPG · PNG · MP4 · MOV · AVI',
+    dragHere: 'Отпустите здесь!',
+    fileRemove: '✕ Удалить',
+    chooseLocation: '📍 Выбор местоположения',
+    chooseLocationDesc: 'Нажмите на карту чтобы поставить маркер. Перетащите для точности.',
+    confirmLocation: 'Подтвердить',
+    cancel: 'Отмена',
+    mapTitle: '🗺️ Карта обнаружений',
+    defectsMapped: 'дефектов на карте',
+    tableTitle: '📋 Журнал обнаружений',
+    tableAdmin: '🗄️ Все обнаружения',
+    tableEmpty: 'Отчётов пока нет. Отправьте первый!',
+    tableTotal: 'всего',
+    colTime: 'ВРЕМЯ',
+    colReport: 'ОТЧЁТ',
+    colType: 'ТИП',
+    colConf: 'УВЕРЕННОСТЬ',
+    colLat: 'ШИРОТА',
+    colLon: 'ДОЛГОТА',
+    colStatus: 'СТАТУС',
+    toastLocation: '📡 Местоположение получено!',
+    toastLocationDenied: 'Доступ к геолокации запрещён — отметьте на карте',
+    toastSubmitOk: 'Отчёт отправлен на анализ',
+    toastNoFile: 'Пожалуйста, выберите файл',
+    toastNoLoc: 'Пожалуйста, укажите местоположение',
+    toastLoadErr: 'Не удалось загрузить отчёты',
+    toastIncorrectPw: 'Неверный пароль',
+    download: '⬇️ Скачать файл',
+    detections: 'ОБНАРУЖЕНИЯ',
+    description: 'ОПИСАНИЕ',
+    confidence: 'уверенность',
+    date: 'Дата', status: 'Статус', type: 'Тип', size: 'Размер', latitude: 'Широта', longitude: 'Долгота',
+  },
+  kz: {
+    appSubtitle: 'ЖИ негізіндегі жол ақаулықтарын есепке алу',
+    navReport: 'Хабарлау',
+    navAdmin: 'Әкімші',
+    navLogout: 'Шығу',
+    wsLive: 'Тікелей',
+    wsReconnecting: 'Қайта қосылуда',
+    footerPowered: 'FastAPI + YOLOv8 арқылы жұмыс істейді',
+    myReports: '📋 Менің хабарламаларым',
+    recentReports: '🕐 Соңғы 10 хабарлама',
+    recentEmpty: 'Хабарлама жоқ. Бірінші болыңыз!',
+    recentNew: '🆕 Жаңа',
+    adminTitle: '⚙️ Әкімші тақтасы',
+    adminFiles: '📂 Барлық жүктелген файлдар',
+    statReports: 'Барлық хабарлама',
+    statDefects: 'Барлық ақаулық',
+    statProcessed: 'Өңделген',
+    statPending: 'Күтуде',
+    adminAccess: 'Әкімші қолжетімділігі',
+    adminDesc: 'Жалғастыру үшін паролді енгізіңіз',
+    adminPassword: 'Пароль',
+    adminPlaceholder: 'Әкімші паролін енгізіңіз',
+    adminEnter: '🔓 Әкімші тақтасына кіру',
+    adminChecking: 'Тексеруде…',
+    adminWrong: 'Қате пароль. Қайталап көріңіз.',
+    reportId: 'Хабарлама #',
+    analyzing: '⏳ Талдануда…',
+    noDefects: 'Ақаулық табылмады',
+    reportTitle: '⚠️ Жол ақаулығын хабарлаңыз',
+    uploadFile: '📁 Файл жүктеу',
+    cameraBtn: '📸 Фото / Бейне түсіру',
+    cameraMobile: '📱 Камера тек мобильде',
+    locationLabel: 'Орналасу',
+    locationRequired: '*',
+    locationGps: 'GPS автоматты',
+    locationManual: 'Картада белгіленді',
+    locationChange: '✏️ Өзгерту',
+    locationEmpty: '📍 Картада орынды таңдаңыз',
+    locationAfterFile: '📍 Файл таңдағаннан кейін орнатыңыз',
+    locationGetting: 'GPS алынуда…',
+    descLabel: 'Сипаттама',
+    descOptional: '(міндетті емес)',
+    descPlaceholder: 'Ақаулықты қысқаша сипаттаңыз…',
+    submitFile: '← Алдымен файл таңдаңыз',
+    submitLocation: '← Орынды белгілеңіз',
+    submitReady: '🚀 Жүктеу және талдау',
+    submitting: 'Талдануда…',
+    dragDrop: 'Сүйреп тастаңыз немесе төмендегі батырмаларды пайдаланыңыз',
+    dragDrop2: 'JPG · PNG · MP4 · MOV · AVI',
+    dragHere: 'Осында тастаңыз!',
+    fileRemove: '✕ Жою',
+    chooseLocation: '📍 Орынды таңдаңыз',
+    chooseLocationDesc: 'Маркер қою үшін картаны басыңыз. Дәлдеу үшін сүйреңіз.',
+    confirmLocation: 'Растау',
+    cancel: 'Болдырмау',
+    mapTitle: '🗺️ Тікелей анықтау картасы',
+    defectsMapped: 'ақаулық картада',
+    tableTitle: '📋 Анықтау журналы',
+    tableAdmin: '🗄️ Барлық анықтаулар',
+    tableEmpty: 'Хабарлама жоқ. Бірінші ақаулықты жіберіңіз!',
+    tableTotal: 'барлығы',
+    colTime: 'УАҚЫТ',
+    colReport: 'ХАБАРЛАМА',
+    colType: 'ТҮР',
+    colConf: 'СЕНІМДІЛІК',
+    colLat: 'ЕНДІК',
+    colLon: 'БОЙЛЫҚ',
+    colStatus: 'МӘРТЕБЕ',
+    toastLocation: '📡 Орын алынды!',
+    toastLocationDenied: 'Геолокацияға рұқсат жоқ — картада белгілеңіз',
+    toastSubmitOk: 'Хабарлама талдауға жіберілді',
+    toastNoFile: 'Файл таңдаңыз',
+    toastNoLoc: 'Орынды белгілеңіз',
+    toastLoadErr: 'Хабарламаларды жүктеу мүмкін болмады',
+    toastIncorrectPw: 'Қате пароль',
+    download: '⬇️ Файлды жүктеу',
+    detections: 'АНЫҚТАУЛАР',
+    description: 'СИПАТТАМА',
+    confidence: 'сенімділік',
+    date: 'Күні', status: 'Мәртебе', type: 'Түр', size: 'Өлшем', latitude: 'Ендік', longitude: 'Бойлық',
+  }
+}
+
+// Language context
+const LangContext = createContext({ lang: 'en', t: (k) => k })
+export const useLang = () => useContext(LangContext)
 
 let toastId = 0
 const ADMIN_PASSWORD = 'wsuk'
@@ -19,6 +279,9 @@ function addMyReportId(id) {
 export default function App() {
   const path = window.location.pathname
   const isAdmin = path === '/admin'
+
+  const [lang, setLang] = useState(() => localStorage.getItem('rw_lang') || 'en')
+  const t = useCallback((key) => TRANSLATIONS[lang]?.[key] ?? TRANSLATIONS.en[key] ?? key, [lang])
 
   const [reports, setReports] = useState([])
   const [toasts, setToasts] = useState([])
@@ -39,7 +302,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetchReports().then(setReports).catch(() => addToast('Could not load reports', 'error'))
+    fetchReports().then(setReports).catch(() => addToast(t('toastLoadErr'), 'error'))
   }, [])
 
   useEffect(() => {
@@ -82,79 +345,105 @@ export default function App() {
     setAdminAuthed(false)
   }
 
+  const changeLang = (l) => { setLang(l); localStorage.setItem('rw_lang', l) }
+
   const myReports = reports.filter(r => myIds.includes(r.id))
 
   return (
-    <div style={layout}>
-      <style>{`
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-        @keyframes slideIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes spin { to{transform:rotate(360deg)} }
-        @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:0.5} }
-        * { box-sizing:border-box; }
-        .main-grid { display:grid; grid-template-columns:minmax(300px,400px) 1fr; gap:20px; align-items:start; }
-        .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
-        .my-reports-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
-        .files-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
-        @media(max-width:768px) {
-          body, html { overflow-x: hidden; }
-          .admin-wrap { overflow-x: hidden; width: 100%; max-width: 100vw; }
-          .main-grid { grid-template-columns:1fr; }
-          .main-pad { padding:12px !important; }
-          .header-inner { padding:0 12px !important; height:52px !important; }
-          .logo-sub { display:none; }
-          .footer-right { display:none; }
-          .stats-grid { grid-template-columns:repeat(2,1fr); }
-          .my-reports-grid { grid-template-columns:1fr; }
-          .files-grid { grid-template-columns:1fr; }
-          .files-grid { grid-template-columns:1fr !important; }
-          .nav-label { display:none; }
-        }
-      `}</style>
+    <LangContext.Provider value={{ lang, t }}>
+      <div style={layout}>
+        <style>{`
+          @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+          @keyframes slideIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+          @keyframes spin { to{transform:rotate(360deg)} }
+          @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.6);opacity:0.5} }
+          @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+          * { box-sizing:border-box; }
+          .main-grid { display:grid; grid-template-columns:minmax(300px,400px) 1fr; gap:20px; align-items:start; }
+          .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+          .my-reports-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+          .files-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+          .recent-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+          @media(max-width:768px) {
+            body, html { overflow-x: hidden; }
+            .admin-wrap { overflow-x: hidden; width: 100%; max-width: 100vw; }
+            .main-grid { grid-template-columns:1fr; }
+            .main-pad { padding:12px !important; }
+            .header-inner { padding:0 12px !important; height:52px !important; }
+            .logo-sub { display:none; }
+            .footer-right { display:none; }
+            .stats-grid { grid-template-columns:repeat(2,1fr); }
+            .my-reports-grid { grid-template-columns:1fr; }
+            .files-grid { grid-template-columns:1fr; }
+            .recent-grid { grid-template-columns:1fr; }
+            .nav-label { display:none; }
+          }
+          .lang-btn { padding:5px 10px; border:none; border-radius:6px; cursor:pointer; font-family:var(--font-mono); font-weight:700; font-size:11px; transition:all 0.15s; letter-spacing:0.04em; }
+          .lang-btn.active { background:rgba(255,255,255,0.25); color:#fff; }
+          .lang-btn.inactive { background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.55); }
+          .lang-btn:hover { background:rgba(255,255,255,0.2); color:#fff; }
+          .recent-card { animation: slideDown 0.3s ease; }
+        `}</style>
 
-      <header style={headerStyle}>
-        <div className="header-inner" style={headerInner}>
-          <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:24}}>🛣️</span>
-            <div>
-              <div style={logoName}>RoadWatch</div>
-              <div className="logo-sub" style={logoSub}>AI-Powered Road Defect Reporting</div>
+        <header style={headerStyle}>
+          <div className="header-inner" style={headerInner}>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:24}}>🛣️</span>
+              <div>
+                <div style={logoName}>RoadWatch</div>
+                <div className="logo-sub" style={logoSub}>{t('appSubtitle')}</div>
+              </div>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+              {/* Language switcher */}
+              <div style={{display:'flex',gap:3,marginRight:4}}>
+                {['en','ru','kz'].map(l => (
+                  <button key={l} className={`lang-btn ${lang===l?'active':'inactive'}`}
+                    onClick={() => changeLang(l)}>
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+              <a href="/" style={navLink(path==='/')}>🏠 <span className="nav-label">{t('navReport')}</span></a>
+              <a href="/admin" style={navLink(isAdmin)}>⚙️ <span className="nav-label">{t('navAdmin')}</span></a>
+              {isAdmin && adminAuthed && (
+                <button onClick={handleAdminLogout} style={logoutBtn}>🚪 {t('navLogout')}</button>
+              )}
+              <div style={{display:'flex',alignItems:'center',gap:5,marginLeft:4}}>
+                <span style={wsDot(wsStatus)} />
+                <span style={wsText}>{wsStatus==='connected'?t('wsLive'):t('wsReconnecting')}</span>
+              </div>
             </div>
           </div>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <a href="/" style={navLink(path==='/')}>🏠 <span className="nav-label">Report</span></a>
-            <a href="/admin" style={navLink(isAdmin)}>⚙️ <span className="nav-label">Admin</span></a>
-            {isAdmin && adminAuthed && (
-              <button onClick={handleAdminLogout} style={logoutBtn}>🚪 Logout</button>
-            )}
-            <div style={{display:'flex',alignItems:'center',gap:5,marginLeft:4}}>
-              <span style={wsDot(wsStatus)} />
-              <span style={wsText}>{wsStatus==='connected'?'Live':'Reconnecting'}</span>
-            </div>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      {isAdmin ? (
-        adminAuthed
-          ? <AdminView reports={reports} onLogout={handleAdminLogout} />
-          : <AdminLogin onLogin={handleAdminLogin} addToast={addToast} />
-      ) : (
-        <UserView reports={reports} myReports={myReports} onSuccess={handleSuccess} addToast={addToast} />
-      )}
+        {isAdmin ? (
+          adminAuthed
+            ? <AdminView reports={reports} onLogout={handleAdminLogout} t={t} />
+            : <AdminLogin onLogin={handleAdminLogin} addToast={addToast} t={t} />
+        ) : (
+          <UserView
+            reports={reports}
+            myReports={myReports}
+            onSuccess={handleSuccess}
+            addToast={addToast}
+            t={t}
+          />
+        )}
 
-      <footer style={footerStyle}>
-        <span>RoadWatch · Road Defect Detection</span>
-        <span className="footer-right" style={{opacity:0.5}}>Powered by FastAPI + YOLOv8</span>
-      </footer>
+        <footer style={footerStyle}>
+          <span>RoadWatch · Road Defect Detection</span>
+          <span className="footer-right" style={{opacity:0.5}}>{t('footerPowered')}</span>
+        </footer>
 
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </div>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
+      </div>
+    </LangContext.Provider>
   )
 }
 
 // ── Admin Login ──────────────────────────────────────────────────────────────
-function AdminLogin({ onLogin, addToast }) {
+function AdminLogin({ onLogin, addToast, t }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -166,7 +455,7 @@ function AdminLogin({ onLogin, addToast }) {
       if (!ok) {
         setError(true)
         setPassword('')
-        addToast('Incorrect password', 'error')
+        addToast(t('toastIncorrectPw'), 'error')
       }
       setLoading(false)
     }, 400)
@@ -178,19 +467,19 @@ function AdminLogin({ onLogin, addToast }) {
         <div style={{textAlign:'center',marginBottom:28}}>
           <div style={{fontSize:48,marginBottom:12}}>🔐</div>
           <h2 style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:800,color:'var(--primary)',marginBottom:6}}>
-            Admin Access
+            {t('adminAccess')}
           </h2>
-          <p style={{color:'var(--text-muted)',fontSize:14}}>Enter the admin password to continue</p>
+          <p style={{color:'var(--text-muted)',fontSize:14}}>{t('adminDesc')}</p>
         </div>
 
         <div style={{marginBottom:16}}>
-          <label style={{display:'block',fontWeight:700,fontSize:13,color:'var(--text)',marginBottom:8}}>Password</label>
+          <label style={{display:'block',fontWeight:700,fontSize:13,color:'var(--text)',marginBottom:8}}>{t('adminPassword')}</label>
           <input
             type="password"
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError(false) }}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            placeholder="Enter admin password"
+            placeholder={t('adminPlaceholder')}
             style={{
               width:'100%', padding:'12px 14px',
               border: error ? '2px solid var(--error)' : '2px solid var(--border)',
@@ -200,7 +489,7 @@ function AdminLogin({ onLogin, addToast }) {
             }}
             autoFocus
           />
-          {error && <p style={{color:'var(--error)',fontSize:12,marginTop:6,fontWeight:600}}>Incorrect password. Try again.</p>}
+          {error && <p style={{color:'var(--error)',fontSize:12,marginTop:6,fontWeight:600}}>{t('adminWrong')}</p>}
         </div>
 
         <button
@@ -214,7 +503,7 @@ function AdminLogin({ onLogin, addToast }) {
             fontFamily:'var(--font-display)', fontWeight:700, fontSize:15
           }}
         >
-          {loading ? 'Checking…' : '🔓 Enter Admin Panel'}
+          {loading ? t('adminChecking') : t('adminEnter')}
         </button>
       </div>
     </main>
@@ -222,7 +511,7 @@ function AdminLogin({ onLogin, addToast }) {
 }
 
 // ── Admin Dashboard ──────────────────────────────────────────────────────────
-function AdminView({ reports }) {
+function AdminView({ reports, t }) {
   const [selectedReport, setSelectedReport] = useState(null)
   const totalDefects = reports.reduce((s,r) => s+(r.detections?.length||0), 0)
   const processed    = reports.filter(r => r.status==='processed').length
@@ -233,12 +522,17 @@ function AdminView({ reports }) {
   return (
     <main className="main-pad" style={mainStyle}>
       <h1 style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:800,color:'var(--primary)',marginBottom:20}}>
-        ⚙️ Admin Dashboard
+        {t('adminTitle')}
       </h1>
 
       {/* Stats */}
       <div className="stats-grid" style={{marginBottom:24}}>
-        {[['Total Reports',reports.length,'📁'],['Total Defects',totalDefects,'🕳️'],['Processed',processed,'✅'],['Pending',pending,'⏳']].map(([label,value,icon]) => (
+        {[
+          [t('statReports'),reports.length,'📁'],
+          [t('statDefects'),totalDefects,'🕳️'],
+          [t('statProcessed'),processed,'✅'],
+          [t('statPending'),pending,'⏳']
+        ].map(([label,value,icon]) => (
           <div key={label} style={statCard}>
             <div style={{fontSize:24,marginBottom:4}}>{icon}</div>
             <div style={{fontFamily:'var(--font-display)',fontSize:26,fontWeight:800,color:'var(--primary)'}}>{value}</div>
@@ -250,12 +544,11 @@ function AdminView({ reports }) {
       {/* Reports with file previews */}
       <div style={{marginBottom:24}}>
         <h2 style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:18,color:'var(--primary)',marginBottom:14}}>
-          📂 All Uploaded Files
+          {t('adminFiles')}
         </h2>
         <div className="files-grid">
           {reports.map(r => (
             <div key={r.id} style={fileCard} onClick={() => setSelectedReport(r)}>
-              {/* File preview */}
               <div style={filePreview}>
                 {r.file_type === 'video' ? (
                   <div style={{textAlign:'center'}}>
@@ -276,8 +569,6 @@ function AdminView({ reports }) {
                   <div style={{fontSize:36}}>🖼️</div>
                 </div>
               </div>
-
-              {/* Info */}
               <div style={{padding:'10px 12px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
                   <span style={{fontWeight:800,color:'var(--primary)',fontFamily:'var(--font-mono)',fontSize:13}}>#{r.id}</span>
@@ -287,7 +578,7 @@ function AdminView({ reports }) {
                   {new Date(r.created_at).toLocaleString()}
                 </div>
                 <div style={{fontSize:12,color:'var(--text)',fontWeight:600}}>
-                  {(r.detections||[]).length} defect{(r.detections||[]).length!==1?'s':''} found
+                  {(r.detections||[]).length} defect{(r.detections||[]).length!==1?'s':''}
                 </div>
                 {r.file_size && (
                   <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
@@ -300,23 +591,17 @@ function AdminView({ reports }) {
         </div>
       </div>
 
-      {/* Full detections table */}
-      <ReportsTable reports={reports} isAdmin />
+      <ReportsTable reports={reports} isAdmin t={t} />
 
-      {/* File detail modal */}
       {selectedReport && (
-        <FileModal
-          report={selectedReport}
-          apiBase={apiBase}
-          onClose={() => setSelectedReport(null)}
-        />
+        <FileModal report={selectedReport} apiBase={apiBase} onClose={() => setSelectedReport(null)} t={t} />
       )}
     </main>
   )
 }
 
 // ── File Detail Modal ────────────────────────────────────────────────────────
-function FileModal({ report, apiBase, onClose }) {
+function FileModal({ report, apiBase, onClose, t }) {
   const fileUrl = `${apiBase}/uploads/${report.filename}`
   const isVideo = report.file_type === 'video'
 
@@ -325,12 +610,11 @@ function FileModal({ report, apiBase, onClose }) {
       <div style={modalBox} onClick={e => e.stopPropagation()}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
           <h3 style={{fontFamily:'var(--font-display)',fontWeight:800,color:'var(--primary)',fontSize:18}}>
-            Report #{report.id}
+            {t('reportId')}{report.id}
           </h3>
           <button onClick={onClose} style={closeBtn}>✕</button>
         </div>
 
-        {/* Media */}
         <div style={{marginBottom:16,borderRadius:10,overflow:'hidden',background:'#000',maxHeight:300,display:'flex',alignItems:'center',justifyContent:'center'}}>
           {isVideo ? (
             <video src={fileUrl} controls style={{maxWidth:'100%',maxHeight:300}} />
@@ -339,15 +623,14 @@ function FileModal({ report, apiBase, onClose }) {
           )}
         </div>
 
-        {/* Details */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:16}}>
           {[
-            ['Date', new Date(report.created_at).toLocaleString()],
-            ['Status', report.status],
-            ['Type', report.file_type || 'image'],
-            ['Size', report.file_size ? `${(report.file_size/1024/1024).toFixed(2)} MB` : '—'],
-            ['Latitude', (report.latitude||0).toFixed(5)],
-            ['Longitude', (report.longitude||0).toFixed(5)],
+            [t('date'), new Date(report.created_at).toLocaleString()],
+            [t('status'), report.status],
+            [t('type'), report.file_type || 'image'],
+            [t('size'), report.file_size ? `${(report.file_size/1024/1024).toFixed(2)} MB` : '—'],
+            [t('latitude'), (report.latitude||0).toFixed(5)],
+            [t('longitude'), (report.longitude||0).toFixed(5)],
           ].map(([k,v]) => (
             <div key={k} style={{background:'var(--bg)',borderRadius:8,padding:'8px 12px'}}>
               <div style={{fontSize:11,color:'var(--text-muted)',fontWeight:700,marginBottom:2}}>{k}</div>
@@ -358,15 +641,14 @@ function FileModal({ report, apiBase, onClose }) {
 
         {report.description && (
           <div style={{background:'var(--bg)',borderRadius:8,padding:'10px 12px',marginBottom:16}}>
-            <div style={{fontSize:11,color:'var(--text-muted)',fontWeight:700,marginBottom:4}}>DESCRIPTION</div>
+            <div style={{fontSize:11,color:'var(--text-muted)',fontWeight:700,marginBottom:4}}>{t('description')}</div>
             <div style={{fontSize:13,color:'var(--text)'}}>"{report.description}"</div>
           </div>
         )}
 
-        {/* Detections */}
         {(report.detections||[]).length > 0 && (
           <div>
-            <div style={{fontSize:11,color:'var(--text-muted)',fontWeight:700,marginBottom:8}}>DETECTIONS</div>
+            <div style={{fontSize:11,color:'var(--text-muted)',fontWeight:700,marginBottom:8}}>{t('detections')}</div>
             <div style={{display:'flex',flexDirection:'column',gap:6}}>
               {report.detections.map((d,i) => (
                 <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'8px 12px',background:'rgba(156,213,255,0.15)',borderRadius:8,border:'1px solid var(--border)'}}>
@@ -374,7 +656,7 @@ function FileModal({ report, apiBase, onClose }) {
                     {String(d.defect_type||'').replace(/_/g,' ')}
                   </span>
                   <span style={{fontFamily:'var(--font-mono)',fontSize:13,color:'var(--text-muted)'}}>
-                    {Math.round((d.confidence||0)*100)}% confidence
+                    {Math.round((d.confidence||0)*100)}% {t('confidence')}
                   </span>
                 </div>
               ))}
@@ -383,7 +665,7 @@ function FileModal({ report, apiBase, onClose }) {
         )}
 
         <a href={fileUrl} download target="_blank" rel="noreferrer" style={downloadBtn}>
-          ⬇️ Download File
+          {t('download')}
         </a>
       </div>
     </div>
@@ -391,20 +673,79 @@ function FileModal({ report, apiBase, onClose }) {
 }
 
 // ── User View ────────────────────────────────────────────────────────────────
-function UserView({ reports, myReports, onSuccess, addToast }) {
+function UserView({ reports, myReports, onSuccess, addToast, t }) {
+  // Last 10 reports globally, sorted by newest first
+  const recentReports = reports.slice(0, 10)
+  const recentIds = useRef(new Set())
+
+  // Track which are truly new (arrived after initial load)
+  const [newIds, setNewIds] = useState(new Set())
+  const isInitialLoad = useRef(true)
+
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false
+      return
+    }
+    // Find reports not seen before
+    const fresh = recentReports.filter(r => !recentIds.current.has(r.id))
+    if (fresh.length > 0) {
+      setNewIds(prev => new Set([...prev, ...fresh.map(r => r.id)]))
+      // Clear "new" badge after 8s
+      setTimeout(() => {
+        setNewIds(prev => {
+          const next = new Set(prev)
+          fresh.forEach(r => next.delete(r.id))
+          return next
+        })
+      }, 8000)
+    }
+    recentReports.forEach(r => recentIds.current.add(r.id))
+  }, [reports])
+
+  useEffect(() => {
+    recentReports.forEach(r => recentIds.current.add(r.id))
+  }, [])
+
   return (
     <main className="main-pad" style={mainStyle}>
       <div className="main-grid">
-        <div><UploadForm onSuccess={onSuccess} addToast={addToast} /></div>
-        <div><MapView reports={reports} /></div>
+        <div><UploadForm onSuccess={onSuccess} addToast={addToast} t={t} /></div>
+        <div><MapView reports={reports} t={t} /></div>
       </div>
+
+      {/* Last 10 recent reports (real-time) */}
+      <div style={{marginTop:28}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+          <h2 style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:18,color:'var(--primary)'}}>
+            {t('recentReports')}
+          </h2>
+          <span style={{background:'rgba(53,88,114,0.08)',color:'var(--primary)',padding:'3px 12px',borderRadius:20,fontFamily:'var(--font-mono)',fontSize:12,fontWeight:700}}>
+            {recentReports.length} / 10
+          </span>
+        </div>
+        {recentReports.length === 0 ? (
+          <div style={{background:'var(--bg-card)',borderRadius:14,border:'1px solid var(--border)',padding:'32px',textAlign:'center'}}>
+            <div style={{fontSize:36,marginBottom:8}}>🛣️</div>
+            <div style={{color:'var(--text-muted)',fontWeight:700}}>{t('recentEmpty')}</div>
+          </div>
+        ) : (
+          <div className="recent-grid">
+            {recentReports.map(r => (
+              <RecentReportCard key={r.id} report={r} isNew={newIds.has(r.id)} t={t} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* My reports */}
       {myReports.length > 0 && (
         <div style={{marginTop:24}}>
           <h2 style={{fontFamily:'var(--font-display)',fontWeight:800,fontSize:18,color:'var(--primary)',marginBottom:14}}>
-            📋 My Submitted Reports
+            {t('myReports')}
           </h2>
           <div className="my-reports-grid">
-            {myReports.map(r => <MyReportCard key={r.id} report={r} />)}
+            {myReports.map(r => <MyReportCard key={r.id} report={r} t={t} />)}
           </div>
         </div>
       )}
@@ -412,14 +753,107 @@ function UserView({ reports, myReports, onSuccess, addToast }) {
   )
 }
 
-function MyReportCard({ report }) {
+// ── Recent Report Card ───────────────────────────────────────────────────────
+function RecentReportCard({ report, isNew, t }) {
+  const defects = report.detections || []
+  const mainDefect = defects[0]
+  const statusColor = {pending:'#f39c12',processed:'#2ecc71',no_defects:'#7AAACE',failed:'#e74c3c'}[report.status]||'#aaa'
+
+  const DEFECT_COLORS = {
+    pothole:'#e74c3c', crack:'#e67e22', alligator_crack:'#d35400',
+    rutting:'#8e44ad', depression:'#2980b9', edge_crack:'#c0392b',
+    patching:'#27ae60', weathering:'#7f8c8d',
+  }
+  const defectColor = mainDefect
+    ? (DEFECT_COLORS[String(mainDefect.defect_type).toLowerCase().replace(/ /g,'_')] || 'var(--primary)')
+    : 'var(--secondary)'
+
+  return (
+    <div className="recent-card" style={{
+      background:'var(--bg-card)',
+      borderRadius:12,
+      padding:16,
+      border: isNew ? `2px solid ${defectColor}` : '1px solid var(--border)',
+      boxShadow: isNew ? `0 4px 20px ${defectColor}33` : 'var(--shadow)',
+      position:'relative',
+      transition:'border 0.4s, box-shadow 0.4s',
+    }}>
+      {isNew && (
+        <span style={{
+          position:'absolute',top:-10,right:10,
+          background:'var(--primary)',color:'#fff',
+          fontSize:10,fontWeight:800,padding:'2px 8px',
+          borderRadius:20,fontFamily:'var(--font-mono)',
+          animation:'slideDown 0.3s ease',
+        }}>{t('recentNew')}</span>
+      )}
+
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+        <div>
+          <div style={{fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)',fontSize:15}}>
+            {t('reportId')}{report.id}
+          </div>
+          <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>
+            {new Date(report.created_at).toLocaleString()}
+          </div>
+        </div>
+        <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700,background:statusColor+'22',color:statusColor,textTransform:'uppercase',flexShrink:0}}>
+          {report.status}
+        </span>
+      </div>
+
+      {/* Location */}
+      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8,background:'var(--bg)',borderRadius:6,padding:'5px 8px'}}>
+        <span style={{fontSize:12}}>📍</span>
+        <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>
+          {(report.latitude||0).toFixed(4)}, {(report.longitude||0).toFixed(4)}
+        </span>
+      </div>
+
+      {/* Defects */}
+      {defects.length > 0 ? (
+        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+          {defects.slice(0,2).map((d,i) => (
+            <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'5px 8px',background:defectColor+'11',borderRadius:6,border:`1px solid ${defectColor}33`}}>
+              <span style={{fontWeight:700,fontSize:12,color:defectColor,textTransform:'capitalize'}}>
+                {String(d.defect_type||'').replace(/_/g,' ')}
+              </span>
+              <span style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)'}}>
+                {Math.round((d.confidence||0)*100)}%
+              </span>
+            </div>
+          ))}
+          {defects.length > 2 && (
+            <div style={{fontSize:11,color:'var(--text-muted)',textAlign:'center',paddingTop:2}}>
+              +{defects.length-2} more
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{fontSize:12,color:'var(--text-muted)',fontStyle:'italic'}}>
+          {report.status==='pending' ? t('analyzing') : t('noDefects')}
+        </div>
+      )}
+
+      {report.description && (
+        <div style={{marginTop:8,fontSize:11,color:'var(--text-muted)',borderTop:'1px solid var(--border)',paddingTop:6,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          "{report.description}"
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MyReportCard({ report, t }) {
   const defects = report.detections || []
   const statusColor = {pending:'#f39c12',processed:'#2ecc71',no_defects:'#7AAACE',failed:'#e74c3c'}[report.status]||'#aaa'
   return (
     <div style={{background:'var(--bg-card)',borderRadius:12,padding:16,border:'1px solid var(--border)',boxShadow:'var(--shadow)'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
         <div>
-          <div style={{fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)',fontSize:15}}>Report #{report.id}</div>
+          <div style={{fontWeight:800,fontFamily:'var(--font-display)',color:'var(--primary)',fontSize:15}}>
+            {t('reportId')}{report.id}
+          </div>
           <div style={{fontSize:12,color:'var(--text-muted)',marginTop:2}}>{new Date(report.created_at).toLocaleString()}</div>
         </div>
         <span style={{padding:'3px 10px',borderRadius:20,fontSize:11,fontWeight:700,background:statusColor+'22',color:statusColor,textTransform:'uppercase'}}>{report.status}</span>
@@ -431,7 +865,7 @@ function MyReportCard({ report }) {
         </div>
       )) : (
         <div style={{fontSize:13,color:'var(--text-muted)',fontStyle:'italic'}}>
-          {report.status==='pending'?'⏳ Analyzing…':'No defects detected'}
+          {report.status==='pending' ? t('analyzing') : t('noDefects')}
         </div>
       )}
       {report.description && <div style={{marginTop:8,fontSize:12,color:'var(--text-muted)',borderTop:'1px solid var(--border)',paddingTop:8}}>"{report.description}"</div>}
