@@ -1,4 +1,27 @@
-export function ReportsTable({ reports, isAdmin = false, t = (k) => k }) {
+const DEFECT_NAMES = {
+  en: {
+    pothole: 'Pothole', crack: 'Crack', alligator_crack: 'Alligator Crack',
+    rutting: 'Rutting', depression: 'Depression', edge_crack: 'Edge Crack',
+    patching: 'Patching', weathering: 'Weathering',
+  },
+  ru: {
+    pothole: 'Выбоина', crack: 'Трещина', alligator_crack: 'Сетка трещин',
+    rutting: 'Колея', depression: 'Просадка', edge_crack: 'Краевая трещина',
+    patching: 'Заплатка', weathering: 'Выветривание',
+  },
+  kz: {
+    pothole: 'Шұңқыр', crack: 'Жарық', alligator_crack: 'Крокодил жарығы',
+    rutting: 'Із қалу', depression: 'Шөгу', edge_crack: 'Жиек жарығы',
+    patching: 'Жамау', weathering: 'Үгілу',
+  },
+}
+
+function translateDefect(type, lang = 'en') {
+  const key = String(type||'').toLowerCase().replace(/ /g,'_')
+  return DEFECT_NAMES[lang]?.[key] || DEFECT_NAMES.en[key] || key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())
+}
+
+export function ReportsTable({ reports, isAdmin = false, t = (k) => k, lang = 'en' }) {
   const allDetections = reports.flatMap(r =>
     (r.detections || []).map(d => ({ ...d, report: r }))
   ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -37,7 +60,7 @@ export function ReportsTable({ reports, isAdmin = false, t = (k) => k }) {
               <tr key={d.id || i} style={i % 2 === 0 ? rowEven : rowOdd}>
                 <td style={td}>{new Date(d.created_at).toLocaleString()}</td>
                 <td style={td}><span style={reportId}>#{d.report.id}</span></td>
-                <td style={td}><span style={defectBadge(d.defect_type)}>{formatType(d.defect_type)}</span></td>
+                <td style={td}><span style={defectBadge(d.defect_type)}>{translateDefect(d.defect_type, lang)}</span></td>
                 <td style={td}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div style={confBar}>
