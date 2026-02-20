@@ -363,7 +363,10 @@ export default function App() {
           .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
           .my-reports-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
           .files-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
-          .recent-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+          .recent-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+          @media(max-width:1200px) { .recent-grid { grid-template-columns:repeat(4,1fr); } }
+          @media(max-width:900px) { .recent-grid { grid-template-columns:repeat(3,1fr); } }
+          @media(max-width:600px) { .recent-grid { grid-template-columns:repeat(2,1fr); } }
           @media(max-width:768px) {
             body, html { overflow-x: hidden; }
             .admin-wrap { overflow-x: hidden; width: 100%; max-width: 100vw; }
@@ -676,22 +679,28 @@ function FileModal({ report, apiBase, onClose, t }) {
 function UserView({ reports, myReports, onSuccess, addToast, t }) {
   // Last 10 reports globally, sorted by newest first
   const recentReports = reports.slice(0, 10)
-  const recentIds = useRef(new Set())
+  const seenIds = useRef(new Set())
+  const initialLoaded = useRef(false)
 
-  // Track which are truly new (arrived after initial load)
+  // Track which are truly new (arrived via WebSocket after initial page load)
   const [newIds, setNewIds] = useState(new Set())
-  const isInitialLoad = useRef(true)
 
   useEffect(() => {
-    if (isInitialLoad.current) {
-      isInitialLoad.current = false
+    if (reports.length === 0) return
+
+    if (!initialLoaded.current) {
+      // First batch = initial fetch, seed as known, never show as new
+      reports.forEach(r => seenIds.current.add(r.id))
+      initialLoaded.current = true
       return
     }
-    // Find reports not seen before
-    const fresh = recentReports.filter(r => !recentIds.current.has(r.id))
+
+    // Subsequent updates: only flag genuinely unseen IDs
+    const fresh = recentReports.filter(r => !seenIds.current.has(r.id))
+    reports.forEach(r => seenIds.current.add(r.id))
+
     if (fresh.length > 0) {
       setNewIds(prev => new Set([...prev, ...fresh.map(r => r.id)]))
-      // Clear "new" badge after 8s
       setTimeout(() => {
         setNewIds(prev => {
           const next = new Set(prev)
@@ -700,12 +709,7 @@ function UserView({ reports, myReports, onSuccess, addToast, t }) {
         })
       }, 8000)
     }
-    recentReports.forEach(r => recentIds.current.add(r.id))
   }, [reports])
-
-  useEffect(() => {
-    recentReports.forEach(r => recentIds.current.add(r.id))
-  }, [])
 
   return (
     <main className="main-pad" style={mainStyle}>
