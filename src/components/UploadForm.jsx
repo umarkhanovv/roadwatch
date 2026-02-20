@@ -16,7 +16,7 @@ function getBrowserLocation() {
   })
 }
 
-export function UploadForm({ onSuccess, addToast }) {
+export function UploadForm({ onSuccess, addToast, t = (k) => k }) {
   const [file, setFile] = useState(null)
   const [description, setDescription] = useState('')
   const [location, setLocation] = useState(null)
@@ -36,9 +36,9 @@ export function UploadForm({ onSuccess, addToast }) {
     try {
       const gpsLoc = await getBrowserLocation()
       setLocation(gpsLoc); setLocationSource('gps')
-      addToast('📡 Location captured!', 'success')
+      addToast(t('toastLocation'), 'success')
     } catch {
-      addToast('Location access denied — mark it on the map', 'info')
+      addToast(t('toastLocationDenied'), 'info')
       setShowMap(true)
     } finally { setLocating(false) }
   }
@@ -55,13 +55,13 @@ export function UploadForm({ onSuccess, addToast }) {
   }
 
   const handleSubmit = async () => {
-    if (!file) { addToast('Please select a file', 'error'); return }
-    if (!location) { addToast('Please set a location', 'error'); return }
+    if (!file) { addToast(t('toastNoFile'), 'error'); return }
+    if (!location) { addToast(t('toastNoLoc'), 'error'); return }
     setSubmitting(true)
     try {
       const result = await submitReport({ file, description, latitude: location.lat, longitude: location.lng })
       onSuccess(result)
-      addToast('Alert sent — report queued for analysis', 'success')
+      addToast(t('toastSubmitOk'), 'success')
       setFile(null); setDescription(''); setLocation(null); setLocationSource(null); setMode(null)
     } catch (err) {
       addToast(err.message || 'Submission failed', 'error')
@@ -73,7 +73,7 @@ export function UploadForm({ onSuccess, addToast }) {
 
   return (
     <div style={card}>
-      <h2 style={titleStyle}><span>⚠️</span> Report a Road Defect</h2>
+      <h2 style={titleStyle}><span>⚠️</span> {t('reportTitle').replace('⚠️ ','')}</h2>
 
       <input ref={fileInputRef} type="file" accept={ACCEPT} style={{display:'none'}}
         onChange={(e) => handleFileUpload(e.target.files[0])} />
@@ -93,18 +93,18 @@ export function UploadForm({ onSuccess, addToast }) {
             <div style={{color:'var(--text-muted)',fontSize:12}}>{(file.size/1024/1024).toFixed(2)} MB</div>
             {locating && (
               <div style={{fontSize:12,color:'var(--secondary)',marginTop:4,display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-                <Spinner small /> Getting location…
+                <Spinner small /> {t('locationGetting')}
               </div>
             )}
-            <button onClick={reset} style={clearBtn}>✕ Remove</button>
+            <button onClick={reset} style={clearBtn}>{t('fileRemove')}</button>
           </div>
         ) : (
           <div style={{textAlign:'center',pointerEvents:'none'}}>
             <div style={{fontSize:32,marginBottom:6}}>📂</div>
             <div style={{fontWeight:600,color:dragging?'var(--primary)':'var(--text-muted)',fontSize:14}}>
-              {dragging ? 'Drop here!' : 'Drag & drop or use buttons below'}
+              {dragging ? t('dragHere') : t('dragDrop')}
             </div>
-            <div style={{color:'var(--text-muted)',fontSize:12,marginTop:3}}>JPG · PNG · MP4 · MOV · AVI</div>
+            <div style={{color:'var(--text-muted)',fontSize:12,marginTop:3}}>{t('dragDrop2')}</div>
           </div>
         )}
       </div>
@@ -112,39 +112,39 @@ export function UploadForm({ onSuccess, addToast }) {
       {/* Buttons */}
       <div style={btnRow}>
         <button style={outlineBtn} onClick={() => fileInputRef.current?.click()}>
-          📁 Upload File
+          {t('uploadFile')}
         </button>
         {IS_MOBILE ? (
           <button style={solidBtn} onClick={() => cameraInputRef.current?.click()}>
-            📸 Take Photo / Video
+            {t('cameraBtn')}
           </button>
         ) : (
-          <div style={hintBox}>📱 Camera on mobile only</div>
+          <div style={hintBox}>{t('cameraMobile')}</div>
         )}
       </div>
 
       {/* Location */}
       <div style={{marginBottom:14}}>
-        <label style={labelStyle}>Location <span style={{color:'var(--error)'}}>*</span></label>
+        <label style={labelStyle}>{t('locationLabel')} <span style={{color:'var(--error)'}}>{t('locationRequired')}</span></label>
         {location ? (
           <div style={locBox}>
             <span style={{fontSize:18}}>{locationSource === 'gps' ? '📡' : '🗺️'}</span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontWeight:700,fontSize:13,color:'var(--primary)'}}>
-                {locationSource === 'gps' ? 'Auto GPS' : 'Marked on map'}
+                {locationSource === 'gps' ? t('locationGps') : t('locationManual')}
               </div>
               <div style={{fontFamily:'var(--font-mono)',fontSize:11,color:'var(--text-muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
               </div>
             </div>
-            <button style={changeBtn} onClick={() => setShowMap(true)}>✏️ Change</button>
+            <button style={changeBtn} onClick={() => setShowMap(true)}>{t('locationChange')}</button>
           </div>
         ) : (
           <div style={locEmpty}>
             {locating
-              ? <span style={{display:'flex',alignItems:'center',gap:8,color:'var(--secondary)',fontSize:13}}><Spinner small />Requesting GPS…</span>
+              ? <span style={{display:'flex',alignItems:'center',gap:8,color:'var(--secondary)',fontSize:13}}><Spinner small />{t('locationGetting')}</span>
               : <span style={{color:'var(--text-muted)',fontSize:13}}>
-                  {mode === 'upload' ? '📍 Choose location on map' : '📍 Set after selecting a file'}
+                  {mode === 'upload' ? t('locationEmpty') : t('locationAfterFile')}
                 </span>
             }
           </div>
@@ -153,18 +153,18 @@ export function UploadForm({ onSuccess, addToast }) {
 
       {/* Description */}
       <div style={{marginBottom:16}}>
-        <label style={labelStyle}>Description <span style={{color:'var(--text-muted)',fontWeight:400,fontSize:12}}>(optional)</span></label>
-        <textarea style={textareaStyle} placeholder="Briefly describe the defect…"
+        <label style={labelStyle}>{t('descLabel')} <span style={{color:'var(--text-muted)',fontWeight:400,fontSize:12}}>{t('descOptional')}</span></label>
+        <textarea style={textareaStyle} placeholder={t('descPlaceholder')}
           value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
       </div>
 
       {/* Submit */}
       <button style={submitStyle(canSubmit)} onClick={handleSubmit} disabled={!canSubmit}>
         {submitting
-          ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> Analyzing…</span>
-          : !file ? '← Select a file first'
-          : !location ? '← Set location first'
-          : '🚀 Upload & Analyze'
+          ? <span style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}><Spinner /> {t('submitting')}</span>
+          : !file ? t('submitFile')
+          : !location ? t('submitLocation')
+          : t('submitReady')
         }
       </button>
 
@@ -173,6 +173,7 @@ export function UploadForm({ onSuccess, addToast }) {
           initial={location}
           onConfirm={(c) => { setLocation(c); setLocationSource('manual'); setShowMap(false) }}
           onCancel={() => setShowMap(false)}
+          t={t}
         />
       )}
     </div>
