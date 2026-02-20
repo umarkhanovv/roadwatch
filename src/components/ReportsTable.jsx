@@ -1,4 +1,4 @@
-export function ReportsTable({ reports, isAdmin = false }) {
+export function ReportsTable({ reports, isAdmin = false, t = (k) => k }) {
   const allDetections = reports.flatMap(r =>
     (r.detections || []).map(d => ({ ...d, report: r }))
   ).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -7,7 +7,7 @@ export function ReportsTable({ reports, isAdmin = false }) {
     return (
       <div style={emptyBox}>
         <div style={{fontSize:40,marginBottom:10}}>🛣️</div>
-        <div style={{fontWeight:700,color:'var(--text-muted)'}}>No reports yet. Submit the first defect!</div>
+        <div style={{fontWeight:700,color:'var(--text-muted)'}}>{t('tableEmpty')}</div>
       </div>
     )
   }
@@ -16,15 +16,18 @@ export function ReportsTable({ reports, isAdmin = false }) {
     <div style={tableCard}>
       <div style={tableHeader}>
         <h2 style={tableTitle}>
-          {isAdmin ? '🗄️ All Detections' : '📋 Detection Log'}
+          {isAdmin ? t('tableAdmin') : t('tableTitle')}
         </h2>
-        <span style={countBadge}>{allDetections.length} total</span>
+        <span style={countBadge}>{allDetections.length} {t('tableTotal')}</span>
       </div>
       <div style={{overflowX:'auto'}}>
         <table style={table}>
           <thead>
             <tr>
-              {['TIME','REPORT ID','TYPE','CONFIDENCE','LATITUDE','LONGITUDE','STATUS'].map(h => (
+              {[
+                t('colTime'), t('colReport'), t('colType'),
+                t('colConf'), t('colLat'), t('colLon'), t('colStatus')
+              ].map(h => (
                 <th key={h} style={th}>{h}</th>
               ))}
             </tr>
