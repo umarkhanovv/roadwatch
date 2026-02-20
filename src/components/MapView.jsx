@@ -16,7 +16,7 @@ function getColor(type) {
   return DEFECT_COLORS[type] || DEFECT_COLORS.default
 }
 
-export function MapView({ reports }) {
+export function MapView({ reports, t = (k) => k }) {
   const mapRef = useRef(null)
   const leafletRef = useRef(null)
   const markersRef = useRef({}) // report_id -> marker
@@ -36,7 +36,6 @@ export function MapView({ reports }) {
     })
   }, [])
 
-  // Sync markers whenever reports change
   useEffect(() => {
     if (!leafletRef.current) return
     import('leaflet').then(L => {
@@ -44,7 +43,7 @@ export function MapView({ reports }) {
       const existingIds = new Set(Object.keys(markersRef.current).map(Number))
 
       reports.forEach(report => {
-        if (existingIds.has(report.id)) return // already on map
+        if (existingIds.has(report.id)) return
 
         const dets = report.detections || []
         const mainDet = dets[0]
@@ -87,25 +86,18 @@ export function MapView({ reports }) {
           .addTo(map)
           .bindPopup(popup, { maxWidth: 260 })
 
-        // Pulse animation for new markers
         marker.on('add', () => {
           const el = marker.getElement()
-          if (el) {
-            el.style.animation = 'pulse 0.5s ease'
-          }
+          if (el) el.style.animation = 'pulse 0.5s ease'
         })
 
         markersRef.current[report.id] = marker
       })
 
-      // Fly to latest report if just added
       if (reports.length > 0) {
         const latest = reports[0]
         if (!existingIds.has(latest.id)) {
-          map.flyTo([latest.latitude, latest.longitude], Math.max(map.getZoom(), 13), {
-            duration: 1.2,
-          })
-          // Open popup for new report after fly
+          map.flyTo([latest.latitude, latest.longitude], Math.max(map.getZoom(), 13), { duration: 1.2 })
           setTimeout(() => {
             const m = markersRef.current[latest.id]
             if (m) m.openPopup()
@@ -115,19 +107,21 @@ export function MapView({ reports }) {
     })
   }, [reports])
 
+  const defectCount = reports.filter(r => r.detections?.length > 0).length
+
   return (
     <div style={wrapper}>
       <div style={mapHeader}>
-        <span style={mapTitle}>🗺️ Live Detection Map</span>
-        <span style={badge}>{reports.filter(r => r.detections?.length > 0).length} defects mapped</span>
+        <span style={mapTitle}>{t('mapTitle')}</span>
+        <span style={badge}>{defectCount} {t('defectsMapped')}</span>
       </div>
       <div ref={mapRef} style={mapStyle} />
-      <Legend />
+      <Legend t={t} />
     </div>
   )
 }
 
-function Legend() {
+function Legend({ t }) {
   const types = [
     { type: 'pothole', label: 'Pothole' },
     { type: 'crack', label: 'Crack' },
@@ -150,58 +144,10 @@ function formatType(t) {
   return t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-const wrapper = {
-  background: 'var(--bg-card)',
-  borderRadius: 14,
-  boxShadow: 'var(--shadow)',
-  border: '1px solid var(--border)',
-  overflow: 'hidden',
-}
-
-const mapHeader = {
-  padding: '14px 20px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  borderBottom: '1px solid var(--border)',
-}
-
-const mapTitle = {
-  fontFamily: 'var(--font-display)',
-  fontWeight: 800,
-  fontSize: 18,
-  color: 'var(--primary)',
-}
-
-const badge = {
-  background: 'rgba(156,213,255,0.25)',
-  color: 'var(--primary)',
-  border: '1px solid var(--accent)',
-  borderRadius: 20,
-  padding: '2px 12px',
-  fontSize: 12,
-  fontWeight: 700,
-}
-
-const mapStyle = {
-  height: 420,
-  width: '100%',
-}
-
-const legendStyle = {
-  padding: '10px 20px',
-  display: 'flex',
-  gap: 16,
-  flexWrap: 'wrap',
-  borderTop: '1px solid var(--border)',
-  background: 'var(--bg)',
-}
-
-const legendItem = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 5,
-  fontSize: 12,
-  color: 'var(--text-muted)',
-  fontWeight: 600,
-}
+const wrapper = { background:'var(--bg-card)',borderRadius:14,boxShadow:'var(--shadow)',border:'1px solid var(--border)',overflow:'hidden' }
+const mapHeader = { padding:'14px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',borderBottom:'1px solid var(--border)' }
+const mapTitle = { fontFamily:'var(--font-display)',fontWeight:800,fontSize:18,color:'var(--primary)' }
+const badge = { background:'rgba(156,213,255,0.25)',color:'var(--primary)',border:'1px solid var(--accent)',borderRadius:20,padding:'2px 12px',fontSize:12,fontWeight:700 }
+const mapStyle = { height:420,width:'100%' }
+const legendStyle = { padding:'10px 20px',display:'flex',gap:16,flexWrap:'wrap',borderTop:'1px solid var(--border)',background:'var(--bg)' }
+const legendItem = { display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--text-muted)',fontWeight:600 }
