@@ -393,7 +393,7 @@ export default function App() {
             <div style={{display:'flex',alignItems:'center',gap:10}}>
               <span style={{fontSize:24}}>🛣️</span>
               <div>
-                <div style={logoName}>RoadWatch</div>
+                <div style={logoName}>AqyldyZhol AI</div>
                 <div className="logo-sub" style={logoSub}>{t('appSubtitle')}</div>
               </div>
             </div>
